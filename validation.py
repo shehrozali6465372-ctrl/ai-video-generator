@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-def validate_prompt(prompt: str) -> str:
+def validate_prompt(prompt: str | None) -> str:
     value = (prompt or "").strip()
     if not value:
         raise ValueError("Prompt is required.")
