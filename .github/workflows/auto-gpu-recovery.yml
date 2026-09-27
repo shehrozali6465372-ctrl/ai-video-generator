@@ -41,6 +41,7 @@ jobs:
           PY
 
       - name: Confirm actual ZeroGPU runtime
+        id: hardware
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -57,10 +58,16 @@ jobs:
 
           if not runtime.hardware or "zero" not in runtime.hardware.lower():
               print("GPU not active yet; leaving certification untriggered.")
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                  output.write("active=false\n")
               raise SystemExit(0)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("active=true\n")
           PY
 
       - name: Trigger production E2E certification
+        if: steps.hardware.outputs.active == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
