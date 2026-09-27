@@ -12,19 +12,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create or update free Static Space
+      - name: Create or update Static Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python -m pip install --upgrade huggingface_hub
           test -n "$HF_TOKEN"
-          hf repos create shehrozjaved/ai-video-generator             --type space             --space-sdk static             --public             --exist-ok             --token "$HF_TOKEN"
+          hf repos create shehrozjaved/ai-video-generator             --type space             --space-sdk static             --public             --exist-ok
 
-      - name: Sync repository to Space
-        uses: huggingface/hub-sync@v0.1.0
-        with:
-          github_repo_id: ${{ github.repository }}
-          huggingface_repo_id: shehrozjaved/ai-video-generator
-          hf_token: ${{ secrets.HF_TOKEN }}
-          repo_type: space
-          space_sdk: static
+      - name: Sync repository to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          hf upload shehrozjaved/ai-video-generator .             --repo-type space             --exclude=".git*"             --exclude=".github*"             --delete="*"             --commit-message="Sync from GitHub: ${{ github.sha }}"
