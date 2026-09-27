@@ -1,0 +1,122 @@
+name: Production E2E certification
+
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install certification client
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "huggingface_hub>=1.0,<2" "gradio_client>=1.12,<2" imageio-ffmpeg
+
+      - name: Verify Space runtime hardware
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          repo_id = "shehrozjaved/ai-video-generator"
+          token = os.environ["HF_TOKEN"]
+          runtime = HfApi(token=token).get_space_runtime(repo_id)
+          print(f"stage={runtime.stage}")
+          print(f"hardware={runtime.hardware}")
+          print(f"requested_hardware={runtime.requested_hardware}")
+
+          if runtime.hardware is None or "zero" not in runtime.hardware.lower():
+              raise SystemExit(
+                  "Certification blocked: Space is not running on ZeroGPU."
+              )
+          PY
+
+      - name: Run real text-to-video request
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          from gradio_client import Client
+
+          space = "shehrozjaved/ai-video-generator"
+          client = Client(space, token=os.environ["HF_TOKEN"])
+          api = client.view_api(return_format="dict")
+          print(api)
+
+          endpoints = api.get("named_endpoints", {})
+          if "/generate_video" not in endpoints:
+              raise SystemExit("Certification blocked: /generate_video endpoint missing.")
+
+          result = client.predict(
+              prompt="A small red kite flying over a quiet field at sunset.",
+              steps=8,
+              frames=17,
+              guidance=6.0,
+              api_name="/generate_video",
+          )
+          print(f"result={result!r}")
+
+          def find_path(value):
+              if isinstance(value, (str, Path)):
+                  candidate = Path(value)
+                  if candidate.is_file():
+                      return candidate
+              if isinstance(value, dict):
+                  for item in value.values():
+                      found = find_path(item)
+                      if found:
+                          return found
+              if isinstance(value, (list, tuple)):
+                  for item in value:
+                      found = find_path(item)
+                      if found:
+                          return found
+              return None
+
+          output = find_path(result)
+          if output is None:
+              raise SystemExit("Certification blocked: generation returned no local video file.")
+
+          if output.stat().st_size <= 0:
+              raise SystemExit("Certification blocked: generated video is empty.")
+
+          print(f"generated_video={output}")
+          print(f"generated_bytes={output.stat().st_size}")
+          PY
+
+      - name: Verify generated MP4 integrity
+        run: |
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          import imageio_ffmpeg
+
+          files = sorted(Path("/tmp").rglob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
+          if not files:
+              raise SystemExit("Certification blocked: no MP4 artifact found.")
+
+          output = files[0]
+          ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+          result = subprocess.run(
+              [ffmpeg, "-v", "error", "-i", str(output), "-f", "null", "-"],
+              capture_output=True,
+              text=True,
+              timeout=30,
+              check=False,
+          )
+          if result.returncode != 0:
+              print(result.stderr)
+              raise SystemExit("Certification blocked: MP4 integrity check failed.")
+
+          print(f"MP4 integrity PASS: {output}")
+          PY
