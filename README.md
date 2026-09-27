@@ -36,6 +36,10 @@ Certification requires all of the following:
 
 A green GitHub workflow alone is not a production certificate.
 
+## E2E certification workflow
+
+The manual GitHub Actions workflow `Production E2E certification` verifies the live Hugging Face Space hardware, discovers the Gradio API, performs a real Wan text-to-video request, and validates the returned MP4 with FFmpeg. It must pass before production certification is issued.
+
 ## Source of truth
 
 GitHub repository:
