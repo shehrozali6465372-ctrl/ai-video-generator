@@ -11,6 +11,7 @@ from diffusers import WanPipeline
 from diffusers.utils import export_to_video
 
 from validation import validate_generation_params, validate_prompt
+from video_validation import validate_video_output
 
 MODEL_ID = os.getenv("MODEL_ID", "Wan-AI/Wan2.1-T2V-1.3B-Diffusers")
 OUTPUT_DIR = Path(tempfile.gettempdir()) / "ai-video-generator"
@@ -43,13 +44,16 @@ def generate_video(prompt: str, steps: int, frames: int, guidance: float):
                 guidance_scale=guidance,
             )
             export_to_video(result.frames[0], str(output), fps=16)
-        if not output.is_file() or output.stat().st_size == 0:
-            raise RuntimeError("Video generation completed without a valid MP4 output.")
-        _cleanup_old_outputs()
+            validate_video_output(output)
+            _cleanup_old_outputs()
         return str(output)
     except gr.Error:
         raise
     except Exception as exc:
+        try:
+            output.unlink(missing_ok=True)
+        except OSError:
+            pass
         raise gr.Error("Video generation failed. Please retry with a shorter prompt.") from exc
 
 
@@ -81,7 +85,11 @@ with gr.Blocks(title="AI Video Generator") as demo:
         guidance = gr.Slider(1, 12, value=6, step=0.5, label="Guidance")
     generate = gr.Button("Generate video", variant="primary")
     output = gr.Video(label="Generated video")
-    generate.click(fn=generate_video, inputs=[prompt, steps, frames, guidance], outputs=output)
+    generate.click(
+        fn=generate_video,
+        inputs=[prompt, steps, frames, guidance],
+        outputs=output,
+    )
 
 if __name__ == "__main__":
     demo.queue(max_size=4).launch()
