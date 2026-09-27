@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy to Hugging Face Space"]
+    types: [completed]
 
 permissions:
   contents: read
