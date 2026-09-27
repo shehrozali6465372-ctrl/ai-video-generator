@@ -4,39 +4,23 @@ import uuid
 from pathlib import Path
 
 import gradio as gr
+import spaces
 import torch
 from diffusers import WanPipeline
 from diffusers.utils import export_to_video
-
-try:
-    import spaces
-except ImportError:
-    class _SpacesFallback:
-        @staticmethod
-        def GPU(*args, **kwargs):
-            def decorator(fn):
-                return fn
-            return decorator
-    spaces = _SpacesFallback()
 
 MODEL_ID = os.getenv("MODEL_ID", "Wan-AI/Wan2.1-T2V-1.3B-Diffusers")
 OUTPUT_DIR = Path(tempfile.gettempdir()) / "ai-video-generator"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-_PIPE = None
+if not torch.cuda.is_available():
+    raise RuntimeError("This application requires a ZeroGPU/accelerated runtime.")
 
-
-def _load_pipeline():
-    global _PIPE
-    if _PIPE is None:
-        if not torch.cuda.is_available():
-            raise RuntimeError("GPU runtime is required for video generation.")
-        _PIPE = WanPipeline.from_pretrained(
-            MODEL_ID,
-            torch_dtype=torch.bfloat16,
-        )
-        _PIPE.to("cuda")
-    return _PIPE
+pipe = WanPipeline.from_pretrained(
+    MODEL_ID,
+    torch_dtype=torch.bfloat16,
+)
+pipe.to("cuda")
 
 
 def validate_prompt(prompt: str) -> str:
@@ -62,7 +46,6 @@ def generate_video(prompt: str, steps: int, frames: int, guidance: float):
     if not 1.0 <= guidance <= 12.0:
         raise gr.Error("Guidance must be between 1 and 12.")
 
-    pipe = _load_pipeline()
     result = pipe(
         prompt=prompt,
         num_inference_steps=steps,
