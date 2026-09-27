@@ -22,8 +22,7 @@ jobs:
             --type space \
             --space-sdk gradio \
             --public \
-            --exist-ok \
-            --token "$HF_TOKEN"
+            --exist-ok
 
       - name: Request ZeroGPU hardware
         env:
@@ -62,5 +61,4 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           hf spaces info shehrozjaved/ai-video-generator \
-            --expand=sdk,runtime \
-            --token "$HF_TOKEN"
+            --expand=sdk,runtime
