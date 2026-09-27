@@ -14,9 +14,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
-      - run: pip install pytest
-      - run: python -m compileall -q validation.py tests
+      - run: pip install -r requirements.txt
+      - run: python -m compileall -q app.py validation.py video_validation.py tests
       - name: Run tests
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python -m pytest -q tests/test_validation.py -vv
+        run: python -m pytest -q tests -vv
