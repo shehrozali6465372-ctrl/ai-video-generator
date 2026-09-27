@@ -6,7 +6,6 @@ colorTo: purple
 sdk: gradio
 app_file: app.py
 python_version: "3.12.12"
-suggested_hardware: zero-a10g
 pinned: false
 ---
 
