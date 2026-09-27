@@ -35,14 +35,20 @@ jobs:
           repo_id = "shehrozjaved/ai-video-generator"
           api = HfApi(token=os.environ["HF_TOKEN"])
 
-          try:
-              runtime = api.request_space_hardware(repo_id, hardware="zero-a10g")
-              print(f"stage={runtime.stage}")
-              print(f"hardware={runtime.hardware}")
-              print(f"requested_hardware={runtime.requested_hardware}")
-          except Exception as exc:
-              print(f"ZeroGPU request not accepted: {type(exc).__name__}: {exc}")
-              print("Deployment remains green; production certification stays blocked until GPU is actually assigned.")
+          requested = False
+          for flavor in ("zerogpu", "zero-a10g"):
+              try:
+                  runtime = api.request_space_hardware(repo_id, hardware=flavor)
+                  print(f"requested_flavor={flavor}")
+                  print(f"stage={runtime.stage}")
+                  print(f"hardware={runtime.hardware}")
+                  print(f"requested_hardware={runtime.requested_hardware}")
+                  requested = True
+                  break
+              except Exception as exc:
+                  print(f"ZeroGPU request attempt {flavor}: {type(exc).__name__}: {exc}")
+          if not requested:
+              print("No ZeroGPU hardware assignment accepted; production certification remains blocked until HF assigns GPU.")
           PY
 
       - name: Sync repository to Hugging Face
