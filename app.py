@@ -19,15 +19,15 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 GENERATION_LOCK = Lock()
 MAX_OUTPUT_FILES = 4
 
-if not torch.cuda.is_available():
-    raise RuntimeError("This application requires a ZeroGPU/accelerated runtime.")
-
 pipe = WanPipeline.from_pretrained(MODEL_ID, torch_dtype=torch.bfloat16)
 pipe.to("cuda")
 
 
 @spaces.GPU(duration=120)
 def generate_video(prompt: str, steps: int, frames: int, guidance: float):
+    if not torch.cuda.is_available():
+        raise gr.Error("GPU runtime is required for video generation.")
+
     try:
         prompt = validate_prompt(prompt)
         steps, frames, guidance = validate_generation_params(steps, frames, guidance)
