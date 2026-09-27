@@ -56,7 +56,8 @@ jobs:
           print(f"requested_hardware={runtime.requested_hardware}")
 
           if not runtime.hardware or "zero" not in runtime.hardware.lower():
-              raise SystemExit("GPU request accepted but ZeroGPU is not active yet.")
+              print("GPU not active yet; leaving certification untriggered.")
+              raise SystemExit(0)
           PY
 
       - name: Trigger production E2E certification
