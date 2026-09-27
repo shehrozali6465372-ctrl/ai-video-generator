@@ -1,0 +1,63 @@
+name: Automatic GPU recovery and certification
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check Hugging Face GPU entitlement
+        id: gpu
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -m pip install --upgrade huggingface_hub
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          repo_id = "shehrozjaved/ai-video-generator"
+          api = HfApi(token=os.environ["HF_TOKEN"])
+
+          try:
+              runtime = api.request_space_hardware(repo_id, hardware="zero-a10g")
+              print(f"stage={runtime.stage}")
+              print(f"hardware={runtime.hardware}")
+              print(f"requested_hardware={runtime.requested_hardware}")
+          except Exception as exc:
+              print(f"GPU entitlement not available yet: {type(exc).__name__}: {exc}")
+              raise SystemExit(0)
+          PY
+
+      - name: Confirm actual ZeroGPU runtime
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          runtime = HfApi(token=os.environ["HF_TOKEN"]).get_space_runtime(
+              "shehrozjaved/ai-video-generator"
+          )
+          print(f"stage={runtime.stage}")
+          print(f"hardware={runtime.hardware}")
+          print(f"requested_hardware={runtime.requested_hardware}")
+
+          if not runtime.hardware or "zero" not in runtime.hardware.lower():
+              raise SystemExit("GPU request accepted but ZeroGPU is not active yet.")
+          PY
+
+      - name: Trigger production E2E certification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run "Production E2E certification" --repo "${{ github.repository }}" --ref main
