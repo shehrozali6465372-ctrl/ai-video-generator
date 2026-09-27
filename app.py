@@ -4,8 +4,8 @@ import uuid
 from pathlib import Path
 from threading import Lock
 
-import gradio as gr
 import spaces
+import gradio as gr
 import torch
 from diffusers import WanPipeline
 from diffusers.utils import export_to_video
